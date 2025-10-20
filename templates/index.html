@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Klasifikasi Penerima Sembako</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .list-group-item.active {
+            background-color: #0d6efd !important;
+            border-color: #0d6efd !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="d-flex" id="wrapper">
+        <div class="bg-dark border-end" id="sidebar-wrapper">
+            <div class="sidebar-heading text-white bg-primary">Dashboard</div>
+            <div class="list-group list-group-flush">
+                <a href="#dashboard" id="dashboard-link" class="list-group-item list-group-item-action bg-dark text-white p-3"><i class="fas fa-home me-2"></i> Dashboard</a>
+                <a href="#data-klasifikasi" id="data-klasifikasi-link" class="list-group-item list-group-item-action bg-dark text-white p-3"><i class="fas fa-table me-2"></i> Data Klasifikasi</a>
+                <a href="#detail-klasifikasi" id="detail-klasifikasi-link" class="list-group-item list-group-item-action bg-dark text-white p-3"><i class="fas fa-list me-2"></i> Detail Klasifikasi</a>
+                <a href="#grafik-container" id="grafik-link" class="list-group-item list-group-item-action bg-dark text-white p-3"><i class="fas fa-chart-pie me-2"></i> Grafik</a>
+                <a href="{{ url_for('tambah_data') }}" id="tambah-data-link" class="list-group-item list-group-item-action bg-dark text-white p-3"><i class="fas fa-plus me-2"></i> Kelola Data Penduduk</a>
+            </div>
+        </div>
+
+        <div id="page-content-wrapper">
+            <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+                <div class="container-fluid">
+                    <button class="btn btn-primary" id="sidebarToggle"><i class="fas fa-bars"></i></button>
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-secondary me-3" id="themeToggle"><i class="fas fa-moon"></i></button>
+                        <h1 class="navbar-brand mb-0 ms-3 d-none d-md-block">Sistem Klasifikasi Penerima Sembako</h1>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="container-fluid py-4">
+                <div class="row" id="dashboard">
+                    <div class="col-lg-12">
+                        <div class="card p-4 shadow-lg mb-5 animate-fade-in">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                              <h2 class="mb-0 text-primary">Analisis Data Penerima</h2>
+                                                                                            {% if data_loaded %}
+                                                                                                <a href="{{ url_for('index') }}" class="btn btn-primary"><i class="fas fa-arrow-left me-2"></i> Kembali ke Dashboard</a>
+                                                                                            {% endif %}
+                            </div>
+                            <hr class="my-4">
+                            <p class="lead mb-4">import data dan analisis di bawah untuk menjalankan algoritma K-Means dan mengklasifikasikan penerima sembako.</p>
+                            
+                            <form action="{{ url_for('import_data') }}" method="post" enctype="multipart/form-data" class="mb-3">
+                              <div class="input-group">
+                                <input type="file" name="file" accept=".csv" class="form-control" required>
+                                <button type="submit" class="btn btn-success">Import Data</button>
+                              </div>
+                            </form>
+                            
+                            {% if not data_loaded %}
+                            <form id="preStartForm" action="/" method="post">
+                                <button type="button" id="preStartBtn" class="btn btn-primary btn-lg w-100 animate-hover">Mulai Membaca Data</button>
+                            </form>
+                            <form id="startForm" action="/" method="post" style="display:none;">
+                                <button type="submit" id="startBtn" class="btn btn-success btn-lg w-100 animate-hover">Mulai Analisis Data</button>
+                            </form>
+                            {% else %}
+                            <form action="/" method="post">
+                                <button type="submit" class="btn btn-success btn-lg w-100 animate-hover">Mulai Analisis Data</button>
+                            </form>
+                            {% endif %}
+                            {# Tombol kembali ke dashboard di bawah Mulai Analisis Data dihapus #}
+                        </div>
+                    </div>
+                </div>
+
+                {% if data_loaded %}
+                <div class="row" id="data-klasifikasi">
+                    <div class="col-lg-12 animate-fade-in">
+                        <div class="card p-4 shadow-lg mb-5">
+                            <h3 class="mb-4 text-secondary text-center">Ringkasan Klasifikasi</h3>
+                            <div class="row align-items-center mb-5">
+                                <div class="col-md-12">
+                                    <div class="alert alert-info text-center shadow-sm">
+                                        <h4 class="alert-heading">Total Keseluruhan Penerima</h4>
+                                        <p class="display-3 mb-0">{{ total_penerima }}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row card-summary-row mb-5">
+                                <div class="col-md-4">
+                                    <div class="card text-center bg-success text-white mb-3 card-summary animate-hover">
+                                        <div class="card-body">
+                                            <h5 class="card-title">Sangat Layak</h5>
+                                            <p class="card-text fs-2">{{ hasil_klaster.get('Sangat Layak', 0) }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card text-center bg-warning text-dark mb-3 card-summary animate-hover">
+                                        <div class="card-body">
+                                            <h5 class="card-title">Layak</h5>
+                                            <p class="card-text fs-2">{{ hasil_klaster.get('Layak', 0) }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card text-center bg-danger text-white mb-3 card-summary animate-hover">
+                                        <div class="card-body">
+                                            <h5 class="card-title">Tidak Layak</h5>
+                                            <p class="card-text fs-2">{{ hasil_klaster.get('Tidak Layak', 0) }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr class="my-5">
+                            <h3 id="detail-klasifikasi" class="mb-4 text-secondary">Detail Data Penerima Berdasarkan Klasifikasi</h3>
+
+                            <ul class="nav nav-pills nav-fill mb-4" id="myTab" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link animate-hover" id="sangat-layak-tab" data-bs-toggle="tab" data-bs-target="#sangat-layak" type="button" role="tab">Sangat Layak</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link animate-hover" id="layak-tab" data-bs-toggle="tab" data-bs-target="#layak" type="button" role="tab">Layak</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link animate-hover" id="tidak-layak-tab" data-bs-toggle="tab" data-bs-target="#tidak-layak" type="button" role="tab">Tidak Layak</button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content mt-3" id="myTabContent">
+                                <div class="tab-pane fade p-3 bg-light rounded shadow-sm" id="sangat-layak" role="tabpanel">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead class="table-dark">
+                                                <tr><th>ID</th><th>Nama</th><th>Pendapatan</th><th>Jml. Keluarga</th><th>Luas Rumah</th><th>Status Pekerjaan</th><th>Jml. Kendaraan</th></tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for row in sangat_layak %}
+                                                <tr>
+                                                    <td><a href="{{ url_for('detail', penerima_id=row.id) }}">{{ row.id }}</a></td>
+                                                    <td>{{ row.NAMA }}</td>
+                                                    <td>Rp {{ "{:,.0f}".format(row.pendapatan) }}</td>
+                                                    <td>{{ row.jumlah_anggota_keluarga }}</td>
+                                                    <td>{{ row.luas_rumah | int }} m²</td>
+                                                    <td>{{ row.status_pekerjaan }}</td>
+                                                    <td>{{ row.jumlah_kendaraan }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="d-flex justify-content-end mt-4">
+                                        <nav>
+                                            <ul class="pagination">
+                                                <li class="page-item {% if page <= 1 %}disabled{% endif %}"><a class="page-link" href="{{ url_for('index', page=page-1, tab='sangat-layak') }}">‹</a></li>
+                                                {% set window = 2 %}
+                                                {% for p in range(1, total_pages_sangat_layak + 1) %}
+                                                    {% if p == 1 or p == total_pages_sangat_layak or (p >= page - window and p <= page + window) %}
+                                                        {% if p == page %}
+                                                            <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                                                        {% else %}
+                                                            <li class="page-item"><a class="page-link" href="{{ url_for('index', page=p, tab='sangat-layak') }}">{{ p }}</a></li>
+                                                        {% endif %}
+                                                    {% elif loop.index == 2 or loop.index == total_pages_sangat_layak - 1 %}
+                                                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                                                    {% endif %}
+                                                {% endfor %}
+                                                <li class="page-item {% if page >= total_pages_sangat_layak %}disabled{% endif %}"><a class="page-link" href="{{ url_for('index', page=page+1, tab='sangat-layak') }}">›</a></li>
+                                            </ul>
+                                        </nav>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade p-3 bg-light rounded shadow-sm" id="layak" role="tabpanel">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead class="table-dark">
+                                                <tr><th>ID</th><th>Nama</th><th>Pendapatan</th><th>Jml. Keluarga</th><th>Luas Rumah</th><th>Status Pekerjaan</th><th>Jml. Kendaraan</th></tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for row in layak %}
+                                                <tr>
+                                                    <td><a href="{{ url_for('detail', penerima_id=row.id) }}">{{ row.id }}</a></td>
+                                                    <td>{{ row.NAMA }}</td>
+                                                    <td>Rp {{ "{:,.0f}".format(row.pendapatan) }}</td>
+                                                    <td>{{ row.jumlah_anggota_keluarga }}</td>
+                                                    <td>{{ row.luas_rumah | int }} m²</td>
+                                                    <td>{{ row.status_pekerjaan }}</td>
+                                                    <td>{{ row.jumlah_kendaraan }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="d-flex justify-content-end mt-4">
+                                        <nav>
+                                            <ul class="pagination">
+                                                <li class="page-item {% if page <= 1 %}disabled{% endif %}"><a class="page-link" href="{{ url_for('index', page=page-1, tab='layak') }}">‹</a></li>
+                                                {% set window = 2 %}
+                                                {% for p in range(1, total_pages_layak + 1) %}
+                                                    {% if p == 1 or p == total_pages_layak or (p >= page - window and p <= page + window) %}
+                                                        {% if p == page %}
+                                                            <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                                                        {% else %}
+                                                            <li class="page-item"><a class="page-link" href="{{ url_for('index', page=p, tab='layak') }}">{{ p }}</a></li>
+                                                        {% endif %}
+                                                    {% elif loop.index == 2 or loop.index == total_pages_layak - 1 %}
+                                                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                                                    {% endif %}
+                                                {% endfor %}
+                                                <li class="page-item {% if page >= total_pages_layak %}disabled{% endif %}"><a class="page-link" href="{{ url_for('index', page=page+1, tab='layak') }}">›</a></li>
+                                            </ul>
+                                        </nav>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade p-3 bg-light rounded shadow-sm" id="tidak-layak" role="tabpanel">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead class="table-dark">
+                                                <tr><th>ID</th><th>Nama</th><th>Pendapatan</th><th>Jml. Keluarga</th><th>Luas Rumah</th><th>Status Pekerjaan</th><th>Jml. Kendaraan</th></tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for row in tidak_layak %}
+                                                <tr>
+                                                    <td><a href="{{ url_for('detail', penerima_id=row.id) }}">{{ row.id }}</a></td>
+                                                    <td>{{ row.NAMA }}</td>
+                                                    <td>Rp {{ "{:,.0f}".format(row.pendapatan) }}</td>
+                                                    <td>{{ row.jumlah_anggota_keluarga }}</td>
+                                                    <td>{{ row.luas_rumah | int }} m²</td>
+                                                    <td>{{ row.status_pekerjaan }}</td>
+                                                    <td>{{ row.jumlah_kendaraan }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="d-flex justify-content-end mt-4">
+                                        <nav>
+                                            <ul class="pagination">
+                                                <li class="page-item {% if page <= 1 %}disabled{% endif %}"><a class="page-link" href="{{ url_for('index', page=page-1, tab='tidak-layak') }}">‹</a></li>
+                                                {% set window = 2 %}
+                                                {% for p in range(1, total_pages_tidak_layak + 1) %}
+                                                    {% if p == 1 or p == total_pages_tidak_layak or (p >= page - window and p <= page + window) %}
+                                                        {% if p == page %}
+                                                            <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                                                        {% else %}
+                                                            <li class="page-item"><a class="page-link" href="{{ url_for('index', page=p, tab='tidak-layak') }}">{{ p }}</a></li>
+                                                        {% endif %}
+                                                    {% elif loop.index == 2 or loop.index == total_pages_tidak_layak - 1 %}
+                                                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                                                    {% endif %}
+                                                {% endfor %}
+                                                <li class="page-item {% if page >= total_pages_tidak_layak %}disabled{% endif %}"><a class="page-link" href="{{ url_for('index', page=page+1, tab='tidak-layak') }}">›</a></li>
+                                            </ul>
+                                        </nav>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row" id="grafik-container">
+                                <div class="col-md-12">
+                                    <h3 class="mb-4 text-secondary">Grafik Distribusi Kategori</h3>
+                                    {% if chart_image %}
+                                        <div class="d-flex justify-content-center">
+                                            <img src="data:image/png;base64,{{ chart_image }}" class="img-fluid" alt="Grafik Kategori" style="max-width:700px; width:100%;">
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if error is defined and not data_loaded %}
+                    <div class="alert alert-danger mt-4 animate-fade-in">{{ error }}</div>
+                {% endif %}
+
+                {% if error_file_not_found and not data_loaded %}
+            <div class="modal fade show" id="fileNotFoundModal" tabindex="-1" aria-modal="true" role="dialog" style="display:block; background:rgba(0,0,0,0.3);">
+              <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                  <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">File Tidak Ditemukan</h5>
+                  </div>
+                                    <div class="modal-body text-dark">
+                                        <p>File <b>sembako.csv</b> tidak ditemukan. Silakan upload atau tambahkan data terlebih dahulu.</p>
+                                    </div>
+                  <div class="modal-footer">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">Kembali ke Dashboard</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <script>
+              document.body.classList.add('modal-open');
+              document.body.style.overflow = 'hidden';
+            </script>
+            {% endif %}
+
+            {% if data_loaded %}
+                                    <div class="mt-5 mb-3">
+                                        <a href="{{ url_for('index') }}" class="btn btn-primary w-100"><i class="fas fa-arrow-left me-2"></i> Kembali ke Dashboard</a>
+                                    </div>
+            {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var el = document.getElementById("wrapper");
+            var toggleButton = document.getElementById("sidebarToggle");
+            toggleButton.onclick = function () {
+                el.classList.toggle("toggled");
+            };
+
+            const themeToggleBtn = document.getElementById('themeToggle');
+            const body = document.body;
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            if (savedTheme === 'dark') {
+                body.classList.add('dark-mode');
+                themeToggleBtn.innerHTML = '<i class="fas fa-sun"></i>';
+            }
+            themeToggleBtn.onclick = function() {
+                body.classList.toggle('dark-mode');
+                if (body.classList.contains('dark-mode')) {
+                    localStorage.setItem('theme', 'dark');
+                    themeToggleBtn.innerHTML = '<i class="fas fa-sun"></i>';
+                } else {
+                    localStorage.setItem('theme', 'light');
+                    themeToggleBtn.innerHTML = '<i class="fas fa-moon"></i>';
+                }
+            };
+
+            const sidebarLinks = document.querySelectorAll('#sidebar-wrapper .list-group-item');
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    sidebarLinks.forEach(item => item.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+            
+            const currentPath = window.location.pathname;
+            const currentHash = window.location.hash;
+            if (currentPath === '{{ url_for("index") }}' && currentHash === '') {
+                document.getElementById('dashboard-link').classList.add('active');
+            } else if (currentHash) {
+                const targetLink = document.querySelector(`a[href="${currentHash}"]`);
+                if (targetLink) {
+                    targetLink.classList.add('active');
+                }
+            }
+
+            const activeTabId = "{{ active_tab | default('sangat-layak') }}";
+            if (activeTabId) {
+                const triggerEl = document.querySelector(`#${activeTabId}-tab`);
+                if (triggerEl) {
+                    const tab = new bootstrap.Tab(triggerEl);
+                    tab.show();
+                }
+            }
+            // Show "Mulai Analisis Data" when pre-start button is clicked (client-side)
+            const preStartBtn = document.getElementById('preStartBtn');
+            const startForm = document.getElementById('startForm');
+            const preStartForm = document.getElementById('preStartForm');
+            if (preStartBtn && startForm && preStartForm) {
+                preStartBtn.addEventListener('click', function() {
+                    // Hide the pre-start button and reveal the actual start form
+                    preStartForm.style.display = 'none';
+                    startForm.style.display = 'block';
+                    // Optionally focus the start button for keyboard users
+                    const startBtn = document.getElementById('startBtn');
+                    if (startBtn) startBtn.focus();
+                });
+            }
+        });
+    </script>
+</body>
+</html>
